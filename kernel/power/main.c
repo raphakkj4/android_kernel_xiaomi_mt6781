@@ -179,7 +179,7 @@ static ssize_t mem_sleep_store(struct kobject *kobj, struct kobj_attribute *attr
 power_attr(mem_sleep);
 #endif /* CONFIG_SUSPEND */
 
-#ifdef CONFIG_PM_SLEEP_DEBUG
+#ifdef CONFIG_PM_DEBUG
 int pm_test_level = TEST_NONE;
 
 static const char * const pm_tests[__TEST_AFTER_LAST] = {

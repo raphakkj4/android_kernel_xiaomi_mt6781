@@ -39,22 +39,20 @@
 #define MTK_SOLUTION 1
 
 const char * const pm_labels[] = {
-	[PM_SUSPEND_TO_IDLE] = "freeze",
+	[PM_SUSPEND_FREEZE] = "freeze",
 	[PM_SUSPEND_STANDBY] = "standby",
 	[PM_SUSPEND_MEM] = "mem",
 };
 const char *pm_states[PM_SUSPEND_MAX];
 static const char * const mem_sleep_labels[] = {
-	[PM_SUSPEND_TO_IDLE] = "s2idle",
+	[PM_SUSPEND_FREEZE] = "s2idle",
 	[PM_SUSPEND_STANDBY] = "shallow",
 	[PM_SUSPEND_MEM] = "deep",
 };
 const char *mem_sleep_states[PM_SUSPEND_MAX];
 
-suspend_state_t mem_sleep_current = PM_SUSPEND_TO_IDLE;
-suspend_state_t mem_sleep_default = PM_SUSPEND_MAX;
-suspend_state_t pm_suspend_target_state;
-EXPORT_SYMBOL_GPL(pm_suspend_target_state);
+suspend_state_t mem_sleep_current = PM_SUSPEND_FREEZE;
+static suspend_state_t mem_sleep_default = PM_SUSPEND_MEM;
 
 unsigned int pm_suspend_global_flags;
 EXPORT_SYMBOL_GPL(pm_suspend_global_flags);
@@ -191,19 +189,19 @@ void __init pm_states_init(void)
 {
 	/* "mem" and "freeze" are always present in /sys/power/state. */
 	pm_states[PM_SUSPEND_MEM] = pm_labels[PM_SUSPEND_MEM];
-	pm_states[PM_SUSPEND_TO_IDLE] = pm_labels[PM_SUSPEND_TO_IDLE];
+	pm_states[PM_SUSPEND_FREEZE] = pm_labels[PM_SUSPEND_FREEZE];
 	/*
 	 * Suspend-to-idle should be supported even without any suspend_ops,
 	 * initialize mem_sleep_states[] accordingly here.
 	 */
-	mem_sleep_states[PM_SUSPEND_TO_IDLE] = mem_sleep_labels[PM_SUSPEND_TO_IDLE];
+	mem_sleep_states[PM_SUSPEND_FREEZE] = mem_sleep_labels[PM_SUSPEND_FREEZE];
 }
 
 static int __init mem_sleep_default_setup(char *str)
 {
 	suspend_state_t state;
 
-	for (state = PM_SUSPEND_TO_IDLE; state <= PM_SUSPEND_MEM; state++)
+	for (state = PM_SUSPEND_FREEZE; state <= PM_SUSPEND_MEM; state++)
 		if (mem_sleep_labels[state] &&
 		    !strcmp(str, mem_sleep_labels[state])) {
 			mem_sleep_default = state;
@@ -233,7 +231,7 @@ void suspend_set_ops(const struct platform_suspend_ops *ops)
 	}
 	if (valid_state(PM_SUSPEND_MEM)) {
 		mem_sleep_states[PM_SUSPEND_MEM] = mem_sleep_labels[PM_SUSPEND_MEM];
-		if (mem_sleep_default >= PM_SUSPEND_MEM)
+		if (mem_sleep_default == PM_SUSPEND_MEM)
 			mem_sleep_current = PM_SUSPEND_MEM;
 	}
 

@@ -2544,22 +2544,11 @@
 			memory contents and reserves bad memory
 			regions that are detected.
 
-	mem_encrypt=	[X86-64] AMD Secure Memory Encryption (SME) control
-			Valid arguments: on, off
-			Default (depends on kernel configuration option):
-			  on  (CONFIG_AMD_MEM_ENCRYPT_ACTIVE_BY_DEFAULT=y)
-			  off (CONFIG_AMD_MEM_ENCRYPT_ACTIVE_BY_DEFAULT=n)
-			mem_encrypt=on:		Activate SME
-			mem_encrypt=off:	Do not activate SME
-
-			Refer to Documentation/x86/amd-memory-encryption.txt
-			for details on when memory encryption can be activated.
-
 	mem_sleep_default=	[SUSPEND] Default system suspend mode:
 			s2idle  - Suspend-To-Idle
 			shallow - Power-On Suspend or equivalent (if supported)
 			deep    - Suspend-To-RAM or equivalent (if supported)
-			See Documentation/admin-guide/pm/sleep-states.rst.
+			See Documentation/power/states.txt.
 
 	meye.*=		[HW] Set MotionEye Camera parameters
 			See Documentation/media/v4l-drivers/meye.rst.
@@ -4149,11 +4138,7 @@
 			[KNL, SMP] Set scheduler's default relax_domain_level.
 			See Documentation/cgroup-v1/cpusets.txt.
 
-	reserve=	[KNL,BUGS] Force kernel to ignore I/O ports or memory
-			Format: <base1>,<size1>[,<base2>,<size2>,...]
-			Reserve I/O ports or memory so the kernel won't use
-			them.  If <base> is less than 0x10000, the region
-			is assumed to be I/O ports; otherwise it is memory.
+	reserve=	[KNL,BUGS] Force the kernel to ignore some iomem area
 
 	reservetop=	[X86-32]
 			Format: nn[KMG]
