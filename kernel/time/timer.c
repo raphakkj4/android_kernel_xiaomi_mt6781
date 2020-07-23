@@ -205,6 +205,7 @@ struct timer_base {
 	unsigned long		clk;
 	unsigned long		next_expiry;
 	unsigned int		cpu;
+	bool			next_expiry_recalc;
 	bool			is_idle;
 	bool			timers_pending;
 	DECLARE_BITMAP(pending_map, WHEEL_SIZE);
@@ -590,7 +591,6 @@ trigger_dyntick_cpu(struct timer_base *base, struct timer_list *timer)
 		 * backward
 		 */
 		base->next_expiry = bucket_expiry;
-		base->timers_pending = true;
 		base->next_expiry_recalc = false;
 		trigger_dyntick_cpu(base, timer);
 	}
@@ -841,8 +841,10 @@ static int detach_if_pending(struct timer_list *timer, struct timer_base *base,
 	if (!timer_pending(timer))
 		return 0;
 
-	if (hlist_is_singular_node(&timer->entry, base->vectors + idx))
+	if (hlist_is_singular_node(&timer->entry, base->vectors + idx)) {
 		__clear_bit(idx, base->pending_map);
+		base->next_expiry_recalc = true;
+	}
 
 	detach_timer(timer, clear_pending);
 	return 1;
@@ -1613,7 +1615,6 @@ static unsigned long __next_timer_interrupt(struct timer_base *base)
 	}
 
 	base->next_expiry_recalc = false;
-	base->timers_pending = !(next == base->clk + NEXT_TIMER_MAX_DELTA);
 
 	return next;
 }
@@ -1676,6 +1677,7 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 	if (base->next_expiry_recalc)
 		base->next_expiry = __next_timer_interrupt(base);
 	nextevt = base->next_expiry;
+	is_max_delta = (nextevt == base->clk + NEXT_TIMER_MAX_DELTA);
 
 	/*
 	 * We have a fresh next event. Check whether we can forward the
@@ -1822,6 +1824,12 @@ static inline void __run_timers(struct timer_base *base)
 	while (time_after_eq(jiffies, base->clk)) {
 
 		levels = collect_expired_timers(base, heads);
+		/*
+		 * The only possible reason for not finding any expired
+		 * timer at this clk is that all matching timers have been
+		 * dequeued.
+		 */
+		WARN_ON_ONCE(!levels && !base->next_expiry_recalc);
 		base->clk++;
 
 		while (levels--)
