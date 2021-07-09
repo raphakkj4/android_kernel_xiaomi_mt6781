@@ -206,7 +206,7 @@ struct timer_base {
 	unsigned long		next_expiry;
 	unsigned int		cpu;
 	bool			is_idle;
-	bool			must_forward_clk;
+	bool			timers_pending;
 	DECLARE_BITMAP(pending_map, WHEEL_SIZE);
 	struct hlist_head	vectors[WHEEL_SIZE];
 } ____cacheline_aligned;
@@ -589,9 +589,10 @@ trigger_dyntick_cpu(struct timer_base *base, struct timer_list *timer)
 		 * Prevent from forward_timer_base() moving the base->clk
 		 * backward
 		 */
-		base->next_expiry = base->clk;
-	} else {
-		base->next_expiry = timer->expires;
+		base->next_expiry = bucket_expiry;
+		base->timers_pending = true;
+		base->next_expiry_recalc = false;
+		trigger_dyntick_cpu(base, timer);
 	}
 	wake_up_nohz_cpu(base->cpu);
 }
@@ -1610,6 +1611,10 @@ static unsigned long __next_timer_interrupt(struct timer_base *base)
 		clk >>= LVL_CLK_SHIFT;
 		clk += adj;
 	}
+
+	base->next_expiry_recalc = false;
+	base->timers_pending = !(next == base->clk + NEXT_TIMER_MAX_DELTA);
+
 	return next;
 }
 
@@ -1659,7 +1664,6 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
 	u64 expires = KTIME_MAX;
 	unsigned long nextevt;
-	bool is_max_delta;
 
 	/*
 	 * Pretend that there is no timer pending if the cpu is offline.
@@ -1669,9 +1673,10 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 		return expires;
 
 	raw_spin_lock(&base->lock);
-	nextevt = __next_timer_interrupt(base);
-	is_max_delta = (nextevt == base->clk + NEXT_TIMER_MAX_DELTA);
-	base->next_expiry = nextevt;
+	if (base->next_expiry_recalc)
+		base->next_expiry = __next_timer_interrupt(base);
+	nextevt = base->next_expiry;
+
 	/*
 	 * We have a fresh next event. Check whether we can forward the
 	 * base. We can only do that when @basej is past base->clk
@@ -1688,7 +1693,7 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 		expires = basem;
 		base->is_idle = false;
 	} else {
-		if (!is_max_delta)
+		if (base->timers_pending)
 			expires = basem + (u64)(nextevt - basej) * TICK_NSEC;
 		/*
 		 * If we expect to sleep more than a tick, mark the base idle.
@@ -2014,6 +2019,7 @@ int timers_prepare_cpu(unsigned int cpu)
 		base = per_cpu_ptr(&timer_bases[b], cpu);
 		base->clk = jiffies;
 		base->next_expiry = base->clk + NEXT_TIMER_MAX_DELTA;
+		base->timers_pending = false;
 		base->is_idle = false;
 		base->must_forward_clk = true;
 	}
