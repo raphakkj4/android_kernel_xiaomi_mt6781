@@ -29,6 +29,10 @@ endif
 
 
 ccflags-y += -D FW_LOG_DEFAULT_ON=0
+<<<<<<< HEAD
+=======
+ccflags-y += -D BUILD_QA_DBG=0
+>>>>>>> bdd8842c32339 (drivers: connectivity: bt-mt66xx: Disable debugging logs on all variants)
 
 
 ccflags-y += -D CONNAC20_CHIPID=$(BT_PLATFORM)
