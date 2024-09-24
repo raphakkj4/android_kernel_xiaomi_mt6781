@@ -11157,9 +11157,7 @@ static bool _nohz_idle_balance(struct rq *this_rq, unsigned int flags,
 	smp_mb();
 
 	for_each_cpu(balance_cpu, nohz.idle_cpus_mask) {
-		if (balance_cpu == this_cpu || !idle_cpu(balance_cpu))
-			continue;
-		if (cpu_isolated(balance_cpu))
+		if (!idle_cpu(balance_cpu))
 			continue;
 		/*
 		 * If this CPU gets work to do, stop the load balancing
