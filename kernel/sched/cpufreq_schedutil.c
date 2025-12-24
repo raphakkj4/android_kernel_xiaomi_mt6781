@@ -276,44 +276,42 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 				 unsigned long max, enum schedutil_type type,
 				 struct task_struct *p)
 {
-	unsigned long dl_util, util, irq;
-	struct rq *rq = cpu_rq(cpu);
-
-	if (!uclamp_is_used() &&
-	    type == FREQUENCY_UTIL && rt_rq_is_runnable(&rq->rt)) {
-		return max;
-	}
+	unsigned long capacity = capacity_orig_of(cpu);
+	unsigned long headroom;
 
 	/*
-	 * Early check to see if IRQ/steal time saturates the CPU, can be
-	 * because of inaccuracies in how we track these -- see
-	 * update_irq_load_avg().
+	 * Skip boosting for very low utilization (< 6.25%)
 	 */
-	irq = cpu_util_irq(rq);
-	if (unlikely(irq >= max))
-		return max;
+	if (likely(util < (capacity >> 4)))
+		return util;
 
 	/*
-	 * Because the time spend on RT/DL tasks is visible as 'lost' time to
-	 * CFS tasks and we use the same metric to track the effective
-	 * utilization (PELT windows are synchronized) we can directly add them
-	 * to obtain the CPU's actual utilization.
-	 *
-	 * CFS and RT utilization can be boosted or capped, depending on
-	 * utilization clamp constraints requested by currently RUNNABLE
-	 * tasks.
-	 * When there are no CFS RUNNABLE tasks, clamps are released and
-	 * frequency will be gracefully reduced with the utilization decay.
+	 * Perform 12.5% boost in < 50% load and 25% boost in >= 50% load
 	 */
-	util = util_cfs + cpu_util_rt(rq);
-	if (type == FREQUENCY_UTIL)
-#ifdef CONFIG_SCHED_TUNE
-		util += schedtune_cpu_margin_with(util, cpu, p);
-#else
-		util = uclamp_rq_util_with(rq, util, p);
-#endif
+	if (util < (capacity >> 1))
+		headroom = util >> 3;
+	else
+		headroom = util >> 2;
 
-	dl_util = cpu_util_dl(rq);
+	/*
+	 * Ensure the total boosted utilization does not exceed the CPU's
+	 * maximum capacity
+	 */
+	if (util + headroom > capacity)
+		return capacity;
+
+	return util + headroom;
+}
+
+unsigned long sugov_effective_cpu_perf(int cpu, unsigned long actual,
+				 unsigned long min,
+				 unsigned long max)
+{
+	/* Add dvfs headroom to actual utilization */
+	actual = apply_dvfs_headroom(actual, cpu);
+	/* Actually we don't need to target the max performance */
+	if (actual < max)
+		max = actual;
 
 	/*
 	 * For frequency selection we do not make cpu_util_dl() a permanent part
