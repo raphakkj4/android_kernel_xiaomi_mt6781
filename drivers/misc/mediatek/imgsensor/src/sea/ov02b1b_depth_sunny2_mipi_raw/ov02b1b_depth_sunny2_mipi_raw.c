@@ -2454,10 +2454,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		streaming_control(KAL_TRUE);
 	break;
     case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
-		set_shutter_frame_length((UINT16) *feature_data,
-	            (UINT16) *(feature_data + 1)),
-				(BOOL) (*(feature_data + 2)));
-		break;
+        set_shutter_frame_length((UINT16)(*feature_data),
+                                 (UINT16)(*(feature_data + 1)),
+                                 (BOOL)(*(feature_data + 2)));
+        break;
     case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
 		/*
 		 * 1, if driver support new sw frame sync
