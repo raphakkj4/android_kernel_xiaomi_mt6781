@@ -629,7 +629,6 @@ SYSCALL_DEFINE1(setuid, uid_t, uid)
 	return __sys_setuid(uid);
 }
 
-
 /*
  * This function implements a generic ability to update ruid, euid,
  * and suid.  This allows you to implement the 4.4 compatible seteuid().
@@ -1251,12 +1250,35 @@ static int override_release(char __user *release, size_t len)
 	return ret;
 }
 
+<<<<<<< ours
+=======
+extern bool legacy_ebpf __read_mostly;
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+extern struct static_key_true susfs_set_uname_key_true;
+extern void susfs_spoof_uname(struct new_utsname* tmp);
+#endif
+>>>>>>> theirs
 SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
 {
 	struct new_utsname tmp;
 
 	down_read(&uts_sem);
 	memcpy(&tmp, utsname(), sizeof(tmp));
+
+	if (!strncmp(current->comm, "bpfloader", 9) ||
+	    !strncmp(current->comm, "netbpfload", 10) ||
+	    !strncmp(current->comm, "uprobestatsbpfload", 18) ||
+	    !strncmp(current->comm, "netd", 4)) {
+		if (current_uid().val == 0 && !legacy_ebpf) {
+			strcpy(tmp.release, "5.4.299");
+			pr_debug("fake uname: %s/%d release=%s\n",
+				 current->comm, current->pid, tmp.release);
+		}
+	}
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	if (static_branch_likely(&susfs_set_uname_key_true))
+		susfs_spoof_uname(&tmp);
+#endif
 	up_read(&uts_sem);
 	if (copy_to_user(name, &tmp, sizeof(tmp)))
 		return -EFAULT;
